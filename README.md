@@ -4,6 +4,18 @@
 
 ---
 
+## Installation
+
+You can install everything in **one command**:
+
+```bash
+git clone https://github.com/shan0ar/crawler.git && cd crawler && pip install -r requirements.txt
+```
+
+Alternatively, you can manually download `xssearch.py` and install dependencies.
+
+---
+
 ## Features
 
 - **Customizable Target:** Specify any URL and parameter location for payload injection using the `XSS` keyword.
@@ -12,17 +24,6 @@
 - **Success Control:** Stop testing after the first detected XSS by default, or continue with `--continue-if-success`.
 - **Comprehensive Output:** Only successful payloads are displayed, with summary at the end.
 - **Headless Chrome:** Uses Chrome in headless mode for speed and reliability.
-
----
-
-## Installation
-
-1. **Clone this repository** or download `xssearch.py`.
-2. **Install dependencies**:
-
-```bash
-pip install -r requirements.txt
-```
 
 ---
 
