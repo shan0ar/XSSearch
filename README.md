@@ -9,7 +9,7 @@
 You can install everything in **one command**:
 
 ```bash
-git clone https://github.com/shan0ar/crawler.git && cd crawler && pip install -r requirements.txt
+git clone https://github.com/shan0ar/xssearch.git && cd xssearch && pip install -r requirements.txt
 ```
 
 Alternatively, you can manually download `xssearch.py` and install dependencies.
