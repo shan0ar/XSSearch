@@ -9,7 +9,6 @@
 - **Customizable Target:** Specify any URL and parameter location for payload injection using the `XSS` keyword.
 - **Flexible Wordlists:** Use any file containing XSS payloads, one per line.
 - **Progress Tracking:** Shows percentage, number of tested payloads, and progress intervals (configurable by count).
-- **Clean Interrupt Handling:** Keyboard interrupts (`Ctrl+C`) are caught and handled gracefully.
 - **Success Control:** Stop testing after the first detected XSS by default, or continue with `--continue-if-success`.
 - **Comprehensive Output:** Only successful payloads are displayed, with summary at the end.
 - **Headless Chrome:** Uses Chrome in headless mode for speed and reliability.
@@ -101,15 +100,6 @@ Finish without XSS
 - Progress is shown every 10 tested payloads up to 1000, every 50 between 1000 and 10000, and every 100 after 10000.
 - Example:  
   `Progression: 0.90% (60/6613)`
-
----
-
-### Keyboard Interrupt
-
-If you press `Ctrl+C` during execution, the script stops cleanly and displays:
-```
-[!] Keyboard interrupt received, exiting gracefully.
-```
 
 ---
 
