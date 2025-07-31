@@ -28,15 +28,26 @@ Alternatively, you can manually download `xssearch.py` and install dependencies.
 - **Success Control:** Stop testing after the first detected XSS by default, or continue with `--continue-if-success`.
 - **Comprehensive Output:** Only successful payloads are displayed, with summary at the end.
 - **Headless Chrome:** Uses Chrome in headless mode for speed and reliability.
+- **Raw HTTP Request Support:** Test POST and complex requests by providing a raw HTTP request (Burp/Proxy export) via `--request`.
+- **Multi-parameter Detection:** Detects all parameters containing `XSS` in URL, POST body, and headers.
+- **Form-based POST Submission:** Uses real browser form submission for POST to maximize detection accuracy.
+- **Automatic Alert Handling:** Automatically cleans up multiple alert popups to prevent Selenium errors.
+- **Interruption Handling:** Gracefully handles keyboard interrupts.
 
 ---
 
 ## Usage
 
-### Basic Command
+### Basic Command (GET)
 
 ```bash
 python xssearch.py --wordlist /path/to/wordlist.txt --url "https://target.com/search?query=XSS"
+```
+
+### Advanced Command (POST or complex request)
+
+```bash
+python xssearch.py --wordlist /path/to/wordlist.txt --request ./request.txt
 ```
 
 ### Options
@@ -44,7 +55,8 @@ python xssearch.py --wordlist /path/to/wordlist.txt --url "https://target.com/se
 | Option                   | Description                                                                                                  |
 |--------------------------|--------------------------------------------------------------------------------------------------------------|
 | `--wordlist`             | Path to your XSS payload wordlist file (required).                                                           |
-| `--url`                  | Target URL with `XSS` where the payload should be injected (required).                                       |
+| `--url`                  | Target URL with `XSS` where the payload should be injected (required for GET).                               |
+| `--request`              | Path to a raw HTTP request file (for POST or complex requests).                                              |
 | `--continue-if-success`  | Continue testing all payloads even after a success (optional).                                               |
 | `--help`                 | Show usage information.                                                                                      |
 
@@ -76,11 +88,27 @@ python xssearch.py --wordlist xss_payloads.txt --url "https://site.com/search?q=
 ```
 Payload: <img src=x onerror=alert(1)> | Alert detected: True
 Payload: <svg onload=alert(2)> | Alert detected: True
-Progression: 0.30% (20/6613)
+Progress: 0.30% (20/6613) parameter: search
 ...
 XSS found
 Payload: <img src=x onerror=alert(1)> | Alert text: 1
 Payload: <svg onload=alert(2)> | Alert text: 2
+```
+
+---
+
+### Example: POST Request with --request
+
+```bash
+python xssearch.py --wordlist xss_payloads.txt --request ./request.txt
+```
+
+**Output:**
+```
+Payload: <img src=x onerror=alert(1)> | Vulnerable parameter: searchFor | Alert detected: True
+...
+XSS found
+Payload: <img src=x onerror=alert(1)> | Vulnerable parameter: searchFor
 ```
 
 ---
@@ -93,7 +121,7 @@ python xssearch.py --wordlist xss_payloads.txt --url "https://site.com/search?q=
 
 **Output:**
 ```
-Progression: 0.15% (10/6613)
+Progress: 0.15% (10/6613) parameter: search
 ...
 Finish without XSS
 ```
@@ -104,7 +132,7 @@ Finish without XSS
 
 - Progress is shown every 10 tested payloads up to 1000, every 50 between 1000 and 10000, and every 100 after 10000.
 - Example:  
-  `Progression: 0.90% (60/6613)`
+  `Progress: 0.90% (60/6613) parameter: searchFor`
 
 ---
 
@@ -127,6 +155,9 @@ Example:
 - `https://test.com/?search=XSS`
 - `https://victim.com/page.php?input=XSS`
 
+**For POST or complex requests:**  
+Export the raw HTTP request (e.g. from Burp Suite) and use the `XSS` keyword in any parameter or header you want to fuzz.
+
 ---
 
 ## Requirements
@@ -136,6 +167,12 @@ See [requirements.txt](requirements.txt) for exact dependencies.
 - Python 3.7+
 - Google Chrome (installed)
 - ChromeDriver (matching your Chrome version)
+- Selenium Python package
+
+Install dependencies with:
+```bash
+pip install -r requirements.txt
+```
 
 ---
 
@@ -145,8 +182,8 @@ See [requirements.txt](requirements.txt) for exact dependencies.
   Ensure Chrome and ChromeDriver are installed and in your PATH.
 - **Permission errors:**  
   Try running with elevated privileges or adjust Chrome options.
-- **Selenium errors:**  
-  Make sure all Python dependencies are installed.
+- **Selenium errors / unexpected alert:**  
+  The tool automatically closes multiple alerts. If you see errors, increase the timeout or check your ChromeDriver version.
 
 ---
 
@@ -166,3 +203,4 @@ shan0ar
 
 Pull requests and suggestions are welcome!  
 Feel free to open issues for bug reports or feature requests.
+  
