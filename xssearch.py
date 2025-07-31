@@ -8,25 +8,25 @@ from selenium.webdriver.support import expected_conditions as EC
 
 def print_help():
     help_text = """
-xssearch3.py - Testeur de failles XSS automatisé
+xssearch3.py - Automated XSS vulnerability tester
 
-Utilisation :
-    python xssearch3.py --wordlist chemin/vers/wordlist.txt --url "https://site.com/?param=XSS" [--continue-if-success]
+Usage:
+    python xssearch3.py --wordlist path/to/wordlist.txt --url "https://website.com/?param=XSS" [--continue-if-success]
 
-Options :
-    --wordlist              Chemin vers la wordlist à tester (obligatoire)
-    --url                   URL cible avec le paramètre GET à tester, utiliser XSS où le payload sera injecté (obligatoire)
-    --continue-if-success   Continue après le premier succès (sinon le script s'arrête)
-    --help                  Affiche cet aide
+Options:
+    --wordlist              Path to the wordlist to test (required)
+    --url                   Target URL with the GET parameter to test, use XSS where the payload will be injected (required)
+    --continue-if-success   Continue after the first success (otherwise the script stops)
+    --help                  Show this help message
 
-Affichage :
-    - Seuls les succès (Alert detected: True) sont affichés
-    - Progression avec pourcentage, ligne courante/nombre total de lignes
-    - Décompte de 10 en 10 jusqu'à 1000 ; de 50 en 50 jusqu'à 10000 ; puis de 100 en 100 au-delà
-    - À la fin : "Finish without XSS" ou "XSS found" + les payloads ayant fonctionné
+Output:
+    - Only successes (Alert detected: True) are displayed
+    - Progress shown as percentage, current line/total lines
+    - Countdown by 10 up to 1,000; by 50 up to 10,000; by 100 above that
+    - At the end: "Finish without XSS" or "XSS found" + the working payloads
 
-Exemple :
-    python xssearch3.py --wordlist /usr/share/wordlists/xss/xss3.txt --url "https://pentwest.com/?q=XSS" --continue-if-success
+Example:
+    python xssearch3.py --wordlist /usr/share/wordlists/xss_payloads.txt --url "https://website.com/?q=XSS" --continue-if-success
 """
     print(help_text)
 
@@ -94,13 +94,13 @@ def main():
 
                     if show or idx == total:
                         percent = (idx / total) * 100
-                        print(f"Progression: {percent:.2f}% ({idx}/{total})")
+                        print(f"Progress: {percent:.2f}% ({idx}/{total})")
             except KeyboardInterrupt:
-                print("\n[!] Interruption clavier reçue, arrêt propre du script.")
+                print("\nKeyboard interruption")
             finally:
                 driver.quit()
     except Exception as e:
-        print(f"[!] Erreur critique: {e}")
+        print(f"[!] Critical error: {e}")
 
     if results:
         print("\nXSS found")
