@@ -32,7 +32,6 @@ Alternatively, you can manually download `xssearch.py` and install dependencies.
 - **Multi-parameter Detection:** Detects all parameters containing `XSS` in URL, POST body, and headers.
 - **Form-based POST Submission:** Uses real browser form submission for POST to maximize detection accuracy.
 - **Automatic Alert Handling:** Automatically cleans up multiple alert popups to prevent Selenium errors.
-- **Interruption Handling:** Gracefully handles keyboard interrupts.
 
 ---
 
