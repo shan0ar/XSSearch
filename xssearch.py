@@ -5,6 +5,7 @@ import re
 import json
 import shutil
 import errno
+import os
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
@@ -16,6 +17,8 @@ xssearch.py - Automated XSS vulnerability tester
 
 Usage:
     python xssearch.py --wordlist path/to/wordlist.txt --url "https://website.com/?param=XSS"
+    python xssearch.py --wordlist path/to/wordlist.txt --url "https://website.com/?q=XSS&validate=true"
+    python xssearch.py --wordlist path/to/wordlist.txt --url "https://website.com/?q=XSS&validate=XSS"
     python xssearch.py --wordlist path/to/wordlist.txt --request path/to/request.txt
 
 Options:
@@ -27,19 +30,6 @@ Options:
 
 Request file format:
     The file should contain a raw HTTP request (as exported by Burp or other proxies).
-    Example:
-        POST /vuln.php HTTP/2
-        Host: pentwest.com
-        ...
-        param1=XSS&param2=XSS
-
-Output:
-    - Only successes (Alert detected: True) are displayed, with the vulnerable parameter
-    - Progress shown (payload number/total, param name)
-    - At the end: "Finish without XSS" or "XSS found" + the working payloads/parameter
-
-Example:
-    python xssearch.py --wordlist /usr/share/wordlists/xss_payloads.txt --request ./request.txt --continue-if-success
 """
     print(help_text)
 
@@ -91,7 +81,6 @@ def find_xss_params(url, headers, body):
     return params
 
 def inject_payload(url, headers, body, target_param, payload):
-
     if target_param[0] == 'url':
         def repl(match):
             name = match.group(2)
@@ -115,32 +104,38 @@ def inject_payload(url, headers, body, target_param, payload):
                 new_headers[k] = new_headers[k].replace('XSS', payload, 1)
     return new_url, new_headers, new_body
 
-def test_xss_selenium(driver, url, method, headers, body):
-    js_headers = filter_js_headers(headers)
-    if method.upper() == "GET":
-        driver.get(url)
-    else:
-        origin_url = headers.get("Origin", f"https://{headers.get('Host','localhost')}")
-        driver.get(origin_url)
-        headers_js = json.dumps(js_headers)
-        safe_body = body.replace('\\', '\\\\').replace('`', '\\`')
-        script = f'''
-            fetch("{url}", {{
-                method: "{method.upper()}",
-                headers: {headers_js},
-                body: `{safe_body}`
-            }}).then(r => r.text()).then(t => {{
-                document.open(); document.write(t); document.close();
-            }});
-        '''
-        driver.execute_script(script)
+def test_xss_get(driver, url):
+    driver.get(url)
     try:
-        WebDriverWait(driver, 2).until(EC.alert_is_present())
+        WebDriverWait(driver, 3).until(EC.alert_is_present())
         alert = driver.switch_to.alert
         alert.accept()
         return True
     except Exception:
         return False
+
+def test_xss_post(driver, url, body):
+    params = dict(kv.split('=', 1) for kv in body.split('&') if '=' in kv)
+    html = f"""
+    <form id='f' method='POST' action='{url}'>
+      {''.join(f"<input name='{k}' value='{v}'>" for k,v in params.items())}
+      <input type='submit'>
+    </form>
+    <script>document.getElementById('f').submit()</script>
+    """
+    with tempfile.NamedTemporaryFile('w', suffix='.html', delete=False) as f:
+        f.write(html)
+        temp_path = f.name
+    driver.get("file://" + temp_path)
+    try:
+        WebDriverWait(driver, 4).until(EC.alert_is_present())
+        alert = driver.switch_to.alert
+        alert.accept()
+        return True
+    except Exception:
+        return False
+    finally:
+        os.unlink(temp_path)
 
 def main():
     parser = argparse.ArgumentParser(add_help=False)
@@ -181,24 +176,26 @@ def main():
                     for m in url_match:
                         url_params.append(('url', m[1]))
                     if not url_params:
-                        print("No XSS parameter found in URL")
+                        print("You have not set the value XSS on a parameter to test it.")
                         sys.exit(1)
                     param_count = len(url_params)
                     for idx, payload in enumerate(payloads, start=1):
                         param = url_params[(idx-1) % param_count]
+                        param_name = param[1]
+                        param_type = param[0]
                         new_url, _, _ = inject_payload(args.url, {}, '', param, payload)
-                        success = test_xss_selenium(driver, new_url, "GET", {}, '')
+                        success = test_xss_get(driver, new_url)
                         if success:
-                            print(f"Payload: {payload} | Vulnerable parameter: {param[1]} | Alert detected: True")
-                            results.append((payload, param[1]))
+                            print(f"Payload: {payload} | Vulnerable parameter: {param_name} | Alert detected: True")
+                            results.append((payload, param_name))
                             if not continue_if_success:
                                 break
                         if idx % 10 == 0:
                             percent = (idx / len(payloads)) * 100
-                            print(f"Progress: {percent:.2f}% ({idx}/{len(payloads)}) parameter: {param[1]}")
+                            print(f"Progress: {percent:.2f}% ({idx}/{len(payloads)}) parameter: {param_name}")
                 elif args.request:
                     method, uri, headers, body = parse_http_request_file(args.request)
-                    base_url = f"https://{headers.get('Host','localhost')}{uri}"
+                    base_url = f"http{'s' if '443' in headers.get('Host','') else ''}://{headers.get('Host','localhost')}{uri}"
                     params = find_xss_params(base_url, headers, body)
                     if not params:
                         print("No XSS parameter found in request")
@@ -206,11 +203,14 @@ def main():
                     param_count = len(params)
                     for idx, payload in enumerate(payloads, start=1):
                         param = params[(idx-1) % param_count]
+                        param_name = param[1]
+                        param_type = param[0]
                         url_inject, headers_inject, body_inject = inject_payload(base_url, headers, body, param, payload)
-                        success = test_xss_selenium(driver, url_inject, method, headers_inject, body_inject)
+                        if method.upper() == "POST":
+                            success = test_xss_post(driver, url_inject, body_inject)
+                        else:
+                            success = test_xss_get(driver, url_inject)
                         if success:
-                            param_name = param[1]
-                            param_type = param[0]
                             if param_type == "header":
                                 print(f"Payload: {payload} | Vulnerable parameter: {param_name} (header) | Alert detected: True")
                                 results.append((payload, param_name, param_type))
