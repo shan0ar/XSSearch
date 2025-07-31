@@ -188,12 +188,6 @@ pip install -r requirements.txt
 
 ## License
 
-MIT License.
-
----
-
-## Author
-
-shan0ar
+BALEC.
 
 ---
