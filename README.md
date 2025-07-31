@@ -9,7 +9,11 @@
 You can install everything in **one command**:
 
 ```bash
-git clone https://github.com/shan0ar/xssearch.git && cd xssearch && pip install -r requirements.txt
+git clone https://github.com/shan0ar/xssearch.git \
+&& python3 -m venv xssearch/xssearch \
+&& source xssearch/xssearch/bin/activate \
+&& pip install -r xssearch/requirements.txt \
+&& cd xssearch
 ```
 
 Alternatively, you can manually download `xssearch.py` and install dependencies.
