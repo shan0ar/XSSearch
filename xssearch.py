@@ -8,10 +8,10 @@ from selenium.webdriver.support import expected_conditions as EC
 
 def print_help():
     help_text = """
-xssearch3.py - Automated XSS vulnerability tester
+xssearch.py - Automated XSS vulnerability tester
 
 Usage:
-    python xssearch3.py --wordlist path/to/wordlist.txt --url "https://website.com/?param=XSS" [--continue-if-success]
+    python xssearch.py --wordlist path/to/wordlist.txt --url "https://website.com/?param=XSS" [--continue-if-success]
 
 Options:
     --wordlist              Path to the wordlist to test (required)
@@ -26,7 +26,7 @@ Output:
     - At the end: "Finish without XSS" or "XSS found" + the working payloads
 
 Example:
-    python xssearch3.py --wordlist /usr/share/wordlists/xss_payloads.txt --url "https://website.com/?q=XSS" --continue-if-success
+    python xssearch.py --wordlist /usr/share/wordlists/xss_payloads.txt --url "https://website.com/?q=XSS" --continue-if-success
 """
     print(help_text)
 
