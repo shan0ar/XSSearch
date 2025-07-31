@@ -47,7 +47,7 @@ python xssearch.py --wordlist /path/to/wordlist.txt --url "https://target.com/se
 ### Advanced Command (POST or complex request)
 
 ```bash
-python xssearch.py --wordlist /path/to/wordlist.txt --request ./request.txt
+python xssearch.py --wordlist /path/to/wordlist.txt --request /path/to/request.txt
 ```
 
 ### Options
@@ -100,7 +100,7 @@ Payload: <svg onload=alert(2)> | Alert text: 2
 ### Example: POST Request with --request
 
 ```bash
-python xssearch.py --wordlist xss_payloads.txt --request ./request.txt
+python xssearch.py --wordlist xss_payloads.txt --request request.txt
 ```
 
 **Output:**
