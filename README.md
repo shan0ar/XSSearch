@@ -198,9 +198,3 @@ MIT License.
 shan0ar
 
 ---
-
-## Contributing
-
-Pull requests and suggestions are welcome!  
-Feel free to open issues for bug reports or feature requests.
-  
