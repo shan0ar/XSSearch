@@ -1,12 +1,13 @@
 # XSSearch
 
-**xssearch.py** is a fast and customizable XSS payload tester for web applications. It uses Selenium to automate browser interactions, allowing you to test for Cross-Site Scripting (XSS) vulnerabilities with your own wordlists and target URLs. The tool supports progress reporting, interruption handling, and several runtime options to streamline your workflow.
+**xssearch.py** is a fast, flexible, and browser-based XSS payload tester for web applications.  
+It uses Selenium and Chrome to automate XSS detection, supports customizable wordlists, GET/POST/complex requests, progress reporting, and now lets you provide a custom cookie for session-based GET fuzzing.
 
 ---
 
 ## Installation
 
-You can install everything in **one command**:
+Quick install (all dependencies):
 
 ```bash
 git clone https://github.com/shan0ar/xssearch.git \
@@ -16,22 +17,22 @@ git clone https://github.com/shan0ar/xssearch.git \
 && cd xssearch
 ```
 
-Alternatively, you can manually download `xssearch.py` and install dependencies.
+Or download `xssearch.py` and install requirements manually.
 
 ---
 
 ## Features
 
-- **Customizable Target:** Specify any URL and parameter location for payload injection using the `XSS` keyword.
-- **Flexible Wordlists:** Use any file containing XSS payloads, one per line.
-- **Progress Tracking:** Shows percentage, number of tested payloads, and progress intervals (configurable by count).
-- **Success Control:** Stop testing after the first detected XSS by default, or continue with `--continue-if-success`.
-- **Comprehensive Output:** Only successful payloads are displayed, with summary at the end.
-- **Headless Chrome:** Uses Chrome in headless mode for speed and reliability.
-- **Raw HTTP Request Support:** Test POST and complex requests by providing a raw HTTP request (Burp/Proxy export) via `--request`.
-- **Multi-parameter Detection:** Detects all parameters containing `XSS` in URL, POST body, and headers.
-- **Form-based POST Submission:** Uses real browser form submission for POST to maximize detection accuracy.
-- **Automatic Alert Handling:** Automatically cleans up multiple alert popups to prevent Selenium errors.
+- **Customizable Target:** Inject payloads into any parameter or header using `XSS` in the URL, POST, or headers.
+- **Flexible Wordlists:** Supports any file with one payload per line.
+- **Progress Tracking:** Prints progress dynamically (every 10s for 1min, every 30s up to 10min, every 3min up to 20min, then every 20min).
+- **Success Control:** Stops after the first XSS (default), or continues with `--continue-if-success`.
+- **Comprehensive Output:** Only successful payloads are shown, with a summary at the end.
+- **Headless Chrome:** Uses Chrome in headless mode for reliability.
+- **Raw HTTP Request Support:** Fuzz POST and complex requests using a raw HTTP request (`--request`).
+- **Multi-parameter Detection:** Detects all params using the `XSS` keyword in URL, body, and headers.
+- **Session Cookie for GET:** Use `--cookie` to test with a real session (GET).
+- **Automatic Alert Handling:** Automatically closes JS alerts to avoid Selenium blocks.
 
 ---
 
@@ -43,7 +44,13 @@ Alternatively, you can manually download `xssearch.py` and install dependencies.
 python xssearch.py --wordlist /path/to/wordlist.txt --url "https://target.com/search?query=XSS"
 ```
 
-### Advanced Command (POST or complex request)
+### With Cookie (GET)
+
+```bash
+python xssearch.py --wordlist xss_payloads.txt --url "https://target.com/search?query=XSS" --cookie "PHPSESSID=xxxxxx"
+```
+
+### Advanced Command (POST / complex)
 
 ```bash
 python xssearch.py --wordlist /path/to/wordlist.txt --request /path/to/request.txt
@@ -53,10 +60,11 @@ python xssearch.py --wordlist /path/to/wordlist.txt --request /path/to/request.t
 
 | Option                   | Description                                                                                                  |
 |--------------------------|--------------------------------------------------------------------------------------------------------------|
-| `--wordlist`             | Path to your XSS payload wordlist file (required).                                                           |
-| `--url`                  | Target URL with `XSS` where the payload should be injected (required for GET).                               |
-| `--request`              | Path to a raw HTTP request file (for POST or complex requests).                                              |
-| `--continue-if-success`  | Continue testing all payloads even after a success (optional).                                               |
+| `--wordlist`             | Path to XSS payload wordlist file (required).                                                                |
+| `--url`                  | Target URL with `XSS` where the payload should be injected (for GET).                                        |
+| `--request`              | Path to a raw HTTP request file (useful for POST or complex requests).                                       |
+| `--cookie`               | Cookie header (e.g. `"PHPSESSID=xxxx; csrf=yyy"`) for GET (optional).                                       |
+| `--continue-if-success`  | Continue testing all payloads even after a found XSS (optional).                                             |
 | `--help`                 | Show usage information.                                                                                      |
 
 ---
@@ -72,7 +80,7 @@ python xssearch.py --wordlist xss_payloads.txt --url "https://site.com/search?q=
 Payload: <svg onload=alert(1)> | Alert detected: True
 
 XSS found
-Payload: <svg onload=alert(1)> | Alert text: 1
+Payload: <svg onload=alert(1)> | Vulnerable parameter: q
 ```
 
 ---
@@ -87,11 +95,11 @@ python xssearch.py --wordlist xss_payloads.txt --url "https://site.com/search?q=
 ```
 Payload: <img src=x onerror=alert(1)> | Alert detected: True
 Payload: <svg onload=alert(2)> | Alert detected: True
-Progress: 0.30% (20/6613) parameter: search
+[00:10] Progress: 20/6613 payloads tested (0.30%)
 ...
 XSS found
-Payload: <img src=x onerror=alert(1)> | Alert text: 1
-Payload: <svg onload=alert(2)> | Alert text: 2
+Payload: <img src=x onerror=alert(1)> | Vulnerable parameter: q
+Payload: <svg onload=alert(2)> | Vulnerable parameter: q
 ```
 
 ---
@@ -120,7 +128,7 @@ python xssearch.py --wordlist xss_payloads.txt --url "https://site.com/search?q=
 
 **Output:**
 ```
-Progress: 0.15% (10/6613) parameter: search
+[00:10] Progress: 10/6613 payloads tested (0.15%)
 ...
 Finish without XSS
 ```
@@ -129,9 +137,13 @@ Finish without XSS
 
 ### Progress Display
 
-- Progress is shown every 10 tested payloads up to 1000, every 50 between 1000 and 10000, and every 100 after 10000.
+- Progress is shown:
+  - Every 10 seconds up to 1 minute,
+  - Every 30 seconds from 1 to 10 minutes,
+  - Every 3 minutes from 10 to 20 minutes,
+  - Every 20 minutes after 20 minutes.
 - Example:  
-  `Progress: 0.90% (60/6613) parameter: searchFor`
+  `[00:30] Progress: 54/6613 payloads tested (0.82%)`
 
 ---
 
@@ -165,10 +177,10 @@ See [requirements.txt](requirements.txt) for exact dependencies.
 
 - Python 3.7+
 - Google Chrome (installed)
-- ChromeDriver (matching your Chrome version)
+- ChromeDriver (matching Chrome version)
 - Selenium Python package
 
-Install dependencies with:
+Install with:
 ```bash
 pip install -r requirements.txt
 ```
@@ -178,11 +190,11 @@ pip install -r requirements.txt
 ## Troubleshooting
 
 - **Chrome/ChromeDriver not found:**  
-  Ensure Chrome and ChromeDriver are installed and in your PATH.
+  Install both and ensure they’re in your PATH.
 - **Permission errors:**  
   Try running with elevated privileges or adjust Chrome options.
 - **Selenium errors / unexpected alert:**  
-  The tool automatically closes multiple alerts. If you see errors, increase the timeout or check your ChromeDriver version.
+  If errors, increase timeout or check your ChromeDriver version.
 
 ---
 
