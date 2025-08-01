@@ -1,7 +1,8 @@
 # XSSearch
 
-**xssearch.py** is a fast, flexible, and browser-based XSS payload tester for web applications.  
-It uses Selenium and Chrome to automate XSS detection, supports customizable wordlists, GET/POST/complex requests, progress reporting, and now lets you provide a custom cookie for session-based GET fuzzing.
+**xssearch.py** is a fast, flexible, browser-based XSS payload tester for web applications.  
+It uses Selenium and Chrome to automate XSS detection, supports customizable wordlists, GET/POST/complex requests, progress reporting, and lets you provide a custom cookie for session-based GET fuzzing.  
+**NEW:** You can now test multiple URLs at once (with `--list`) and get clean interruption handling!
 
 ---
 
@@ -27,13 +28,11 @@ Or download `xssearch.py` and install requirements manually.
 - **Flexible Wordlists:** Supports any file with one payload per line.
 - **Progress Tracking:** Prints progress dynamically (every 10s for 1min, every 30s up to 10min, every 3min up to 20min, then every 20min).
 - **Success Control:** Stops after the first XSS (default), or continues with `--continue-if-success`.
-- **Comprehensive Output:** Only successful payloads are shown, with a summary at the end.
-- **Headless Chrome:** Uses Chrome in headless mode for reliability.
-- **Raw HTTP Request Support:** Fuzz POST and complex requests using a raw HTTP request (`--request`).
 - **Multi-parameter Detection:** Detects all params using the `XSS` keyword in URL, body, and headers.
+- **Comprehensive Output:** Only successful payloads are shown, with a summary at the end.
+- **Raw HTTP Request Support:** Fuzz POST and complex requests using a raw HTTP request (`--request`).
 - **Session Cookie for GET:** Use `--cookie` to test with a real session (GET).
-- **Automatic Alert Handling:** Automatically closes JS alerts to avoid Selenium blocks.
-
+- **Multiple URLs:** Use `--list list.txt` to test many URLs (with `XSS` keyword) in the same run, alternating each payload.
 ---
 
 ## Usage
@@ -50,6 +49,13 @@ python xssearch.py --wordlist /path/to/wordlist.txt --url "https://target.com/se
 python xssearch.py --wordlist xss_payloads.txt --url "https://target.com/search?query=XSS" --cookie "PHPSESSID=xxxxxx"
 ```
 
+### Multiple URLs (GET, alternating, with session)
+
+```bash
+python xssearch.py --wordlist xss_payloads.txt --list list.txt --cookie "PHPSESSID=xxxxxx"
+```
+Where `list.txt` contains one URL per line, with the `XSS` keyword(s) in parameters to fuzz.
+
 ### Advanced Command (POST / complex)
 
 ```bash
@@ -63,6 +69,7 @@ python xssearch.py --wordlist /path/to/wordlist.txt --request /path/to/request.t
 | `--wordlist`             | Path to XSS payload wordlist file (required).                                                                |
 | `--url`                  | Target URL with `XSS` where the payload should be injected (for GET).                                        |
 | `--request`              | Path to a raw HTTP request file (useful for POST or complex requests).                                       |
+| `--list`                 | File with URLs (one per line, with `XSS` keyword in parameters).                                             |
 | `--cookie`               | Cookie header (e.g. `"PHPSESSID=xxxx; csrf=yyy"`) for GET (optional).                                       |
 | `--continue-if-success`  | Continue testing all payloads even after a found XSS (optional).                                             |
 | `--help`                 | Show usage information.                                                                                      |
@@ -120,6 +127,31 @@ Payload: <img src=x onerror=alert(1)> | Vulnerable parameter: searchFor
 
 ---
 
+### Example: Multiple URLs with --list
+
+```bash
+python xssearch.py --wordlist xss_payloads.txt --list list.txt --cookie "PHPSESSID=xxxxxx"
+```
+
+Where `list.txt`:
+```
+http://target1.com/page.php?param=XSS
+http://target2.com/page.php?id=XSS
+http://target3.com/search?kw=XSS&ok=1
+```
+
+**Output (example):**
+```
+Payload: <img/src/onerror=alert(1)> | Vulnerable parameter: param | Alert detected: True | URL: http://target1.com/page.php?param=XSS
+Payload: <svg/onload=alert(2)> | Vulnerable parameter: id | Alert detected: True | URL: http://target2.com/page.php?id=XSS
+...
+XSS found
+Payload: <img/src/onerror=alert(1)> | Vulnerable parameter: param | URL: http://target1.com/page.php?param=XSS
+Payload: <svg/onload=alert(2)> | Vulnerable parameter: id | URL: http://target2.com/page.php?id=XSS
+```
+
+---
+
 ### Example: No XSS Found
 
 ```bash
@@ -147,6 +179,20 @@ Finish without XSS
 
 ---
 
+### Clean Keyboard Interrupt
+
+If you press `Ctrl+C`, the script safely stops and prints a clean summary, e.g.:
+```
+Keyboard interruption - XSS found
+Payload: <img/src/onerror=alert(1)> | Vulnerable parameter: param | URL: http://target1.com/page.php?param=XSS
+```
+or
+```
+Keyboard interruption - Finish without XSS
+```
+
+---
+
 ## Wordlist Format
 
 Your wordlist should be a plain text file, **one payload per line**.  
@@ -163,8 +209,8 @@ Example:
 
 Use the string `XSS` in your target URL where you want the payload to be injected.  
 Example:
-- `https://test.com/?search=XSS`
-- `https://victim.com/page.php?input=XSS`
+- `https://example.com/?search=XSS`
+- `https://example.com/page.php?view=true&input=XSS`
 
 **For POST or complex requests:**  
 Export the raw HTTP request (e.g. from Burp Suite) and use the `XSS` keyword in any parameter or header you want to fuzz.
