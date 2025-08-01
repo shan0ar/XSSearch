@@ -18,6 +18,7 @@ xssearch.py - Automated XSS vulnerability tester
 
 Usage:
     python xssearch.py --wordlist path/to/wordlist.txt --url "https://website.com/?param=XSS"
+    python xssearch.py --wordlist path/to/wordlist.txt --list list.txt
     python xssearch.py --wordlist path/to/wordlist.txt --url "https://website.com/?q=XSS&validate=true"
     python xssearch.py --wordlist path/to/wordlist.txt --url "https://website.com/?q=XSS&validate=XSS"
     python xssearch.py --wordlist path/to/wordlist.txt --request path/to/request.txt
@@ -27,6 +28,7 @@ Options:
     --wordlist              Path to the wordlist to test (required)
     --url                   Target URL with the GET parameter to test, use XSS where the payload will be injected
     --request               HTTP request file to use (see below for format)
+    --list                  File containing URLs (one per line, XSS keyword required)
     --cookie                Cookie header to use for GET requests (optional)
     --continue-if-success   Continue after the first success (otherwise the script stops)
     --help                  Show this help message
@@ -122,6 +124,18 @@ def set_cookies_in_driver(driver, url, cookie_header):
             })
         except Exception: pass
 
+def test_xss_get(driver, url, cookie_header=None):
+    if cookie_header:
+        set_cookies_in_driver(driver, url, cookie_header)
+    driver.get(url)
+    try:
+        WebDriverWait(driver, 3).until(EC.alert_is_present())
+        alert = driver.switch_to.alert
+        alert.accept()
+        return True
+    except Exception:
+        return False
+
 def test_xss_post(driver, url, body, cookies, headers):
     params = dict(kv.split('=', 1) for kv in body.split('&') if '=' in kv)
     try:
@@ -141,18 +155,6 @@ def test_xss_post(driver, url, body, cookies, headers):
         return True
     except Exception:
         os.unlink(temp_path)
-        return False
-
-def test_xss_get(driver, url, cookie_header=None):
-    if cookie_header:
-        set_cookies_in_driver(driver, url, cookie_header)
-    driver.get(url)
-    try:
-        WebDriverWait(driver, 3).until(EC.alert_is_present())
-        alert = driver.switch_to.alert
-        alert.accept()
-        return True
-    except Exception:
         return False
 
 def should_print_progress(elapsed, last_print, printed_intervals):
@@ -183,22 +185,29 @@ def main():
     parser.add_argument("--wordlist", type=str, required=False)
     parser.add_argument("--url", type=str, required=False)
     parser.add_argument("--request", type=str, required=False)
+    parser.add_argument("--list", type=str, required=False, help="File containing URLs (one per line, XSS keyword required)")
     parser.add_argument("--cookie", type=str, required=False, help="Cookie header for GET requests (eg: \"PHPSESSID=xxxx; token=yyy\")")
     parser.add_argument("--continue-if-success", action='store_true')
     parser.add_argument("--help", action='store_true')
     args = parser.parse_args()
 
-    if args.help or not args.wordlist or (not args.url and not args.request):
+    if args.help or not args.wordlist or (not args.url and not args.request and not args.list):
         print_help()
         sys.exit(0)
 
     wordlist_path = args.wordlist
     continue_if_success = args.continue_if_success
     cookie_header = args.cookie
+    list_path = args.list
 
     with open(wordlist_path, "r", encoding="utf8") as f:
         payloads = [line.strip() for line in f if line.strip()]
     results = []
+
+    url_list = []
+    if list_path:
+        with open(list_path, "r", encoding="utf8") as f:
+            url_list = [line.strip() for line in f if line.strip()]
 
     service = Service("/usr/bin/chromedriver")
     try:
@@ -213,32 +222,52 @@ def main():
             driver = webdriver.Chrome(service=service, options=options)
 
             try:
-                found = False
                 start_time = time.time()
                 printed_intervals = set()
                 payloads_tried = 0
                 total_payloads = 0
 
-                if args.url:
+                if args.list:
+                    url_found_xss = {url: False for url in url_list}
+                    url_params_map = {}
+                    for url in url_list:
+                        url_params = []
+                        url_match = re.findall(r'([?&])([^=]+)=XSS', url)
+                        for m in url_match:
+                            url_params.append(('url', m[1]))
+                        url_params_map[url] = url_params
+
+                    total_payloads = len(payloads) * sum(len(params) for params in url_params_map.values() if params)
+
+                    for payload_idx, payload in enumerate(payloads):
+                        for url_idx, url in enumerate(url_list):
+                            if url_found_xss[url]:
+                                continue
+                            url_params = url_params_map[url]
+                            if not url_params:
+                                continue
+                            url_xss_hit_this_round = False
+                            for param in url_params:
+                                param_name = param[1]
+                                param_type = param[0]
+                                new_url, _, _ = inject_payload(url, {}, '', param, payload)
+                                payloads_tried += 1
+                                print_progress(payloads_tried, total_payloads, start_time, printed_intervals)
+                                success = test_xss_get(driver, new_url, cookie_header)
+                                if success:
+                                    print(f"Payload: {payload} | Vulnerable parameter: {param_name} | Alert detected: True | URL: {url}")
+                                    results.append((payload, param_name, url))
+                                    url_found_xss[url] = True
+                elif args.url:
                     url_params = []
                     url_match = re.findall(r'([?&])([^=]+)=XSS', args.url)
                     for m in url_match:
                         url_params.append(('url', m[1]))
                     total_payloads = len(payloads) * len(url_params)
-                elif args.request:
-                    method, uri, headers, body = parse_http_request_file(args.request)
-                    base_url = f"http{'s' if '443' in headers.get('Host','') else ''}://{headers.get('Host','localhost')}{uri}"
-                    params = find_xss_params(base_url, headers, body)
-                    total_payloads = len(payloads) * len(params)
-
-                if args.url:
-                    url_params = []
-                    url_match = re.findall(r'([?&])([^=]+)=XSS', args.url)
-                    for m in url_match:
-                        url_params.append(('url', m[1]))
                     if not url_params:
                         print("You have not set the value XSS on a parameter to test it.")
                         sys.exit(1)
+                    found = False
                     for payload in payloads:
                         for param in url_params:
                             param_name = param[1]
@@ -259,12 +288,14 @@ def main():
                     method, uri, headers, body = parse_http_request_file(args.request)
                     base_url = f"http{'s' if '443' in headers.get('Host','') else ''}://{headers.get('Host','localhost')}{uri}"
                     params = find_xss_params(base_url, headers, body)
+                    total_payloads = len(payloads) * len(params)
                     if not params:
                         print("No XSS parameter found in request")
                         sys.exit(1)
                     cookie_header_req = headers.get('Cookie', '')
                     cookies_dict = cookies_dict_from_header(cookie_header_req) if cookie_header_req else {}
                     filtered_headers = {k: v for k, v in headers.items() if k.lower() not in ['cookie', 'content-length']}
+                    found = False
                     for payload in payloads:
                         for param in params:
                             param_name = param[1]
@@ -279,7 +310,7 @@ def main():
                             if success:
                                 if param_type == "header":
                                     print(f"Payload: {payload} | Vulnerable parameter: {param_name} (header) | Alert detected: True")
-                                    results.append((payload, param_name, param_type))
+                                    results.append((payload, param_name, 'header'))
                                 else:
                                     print(f"Payload: {payload} | Vulnerable parameter: {param_name} | Alert detected: True")
                                     results.append((payload, param_name))
@@ -295,7 +326,7 @@ def main():
                 try:
                     shutil.rmtree(tmpdirname)
                 except OSError as e:
-                    if e.errno == errno.ENOTEMPTY or e.errno == 39:
+                    if e.errno == os.errno.ENOTEMPTY or e.errno == 39:
                         pass
                     else:
                         print(f"[!] Critical error: {e}")
@@ -305,7 +336,9 @@ def main():
     if results:
         print("\nXSS found")
         for r in results:
-            if len(r) == 3 and r[2] == "header":
+            if len(r) == 3:
+                print(f"Payload: {r[0]} | Vulnerable parameter: {r[1]} | URL: {r[2]}")
+            elif len(r) == 3 and r[2] == "header":
                 print(f"Payload: {r[0]} | Vulnerable parameter: {r[1]} (header)")
             else:
                 print(f"Payload: {r[0]} | Vulnerable parameter: {r[1]}")
