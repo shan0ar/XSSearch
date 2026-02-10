@@ -64,7 +64,7 @@ def find_xss_params(url, headers, body):
     url_match = re.findall(r'([?&])([^=]+)=XSS', url)
     for m in url_match:
         params.append(('url', m[1]))
-    body_match = re.findall(r'([^=&]+)=XSS', body)
+    body_match = re.findall(r'([^=&]+)=XSS\b', body)
     for b in body_match:
         params.append(('body', b))
     for k, v in headers.items():
@@ -85,7 +85,7 @@ def inject_payload(url, headers, body, target_param, payload):
         def repl(match):
             name = match.group(1)
             return f"{name}={payload}" if name == target_param[1] else match.group(0)
-        new_body = re.sub(r'([^=&]+)=XSS', repl, body)
+        new_body = re.sub(r'([^=&]+)=XSS\b', repl, body)
     else:
         new_body = body
 
